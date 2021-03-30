@@ -11,11 +11,11 @@ jobs:
       matrix:
         include:
         - os: ubuntu-18.04
-          cc: gcc
-          cpp: "g++"
+          CC: gcc
+          CXX: g++
         - os: ubuntu-18.04
-          cc: clang
-          cpp: "clang++"
+          CC: clang
+          CXX: clang++
         - os: macos-10.15
     steps:
     - name: Checkout Kodi repo
@@ -30,15 +30,15 @@ jobs:
         path: ${{ env.app_id }}
     - name: Configure
       env:
-        CC: ${{ matrix.compiler }}
-        CXX: ${{ matrix.compiler }}
+        CC: ${{ matrix.CC }}
+        CXX: ${{ matrix.CXX }}
       run: |
         cd ${app_id} && mkdir -p build && cd build
         cmake -DADDONS_TO_BUILD=${app_id} -DADDON_SRC_PREFIX=${{ github.workspace }} -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/xbmc/addons -DPACKAGE_ZIP=1 ${{ github.workspace }}/xbmc/cmake/addons
     - name: Build
       env:
-        CC: ${{ matrix.cc }}
-        CXX: ${{ matrix.cpp }}
+        CC: ${{ matrix.CC }}
+        CXX: ${{ matrix.CXX }}
       run: |
         cd ${app_id}/build
         make
