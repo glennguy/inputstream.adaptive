@@ -7,8 +7,10 @@ class HLSTreeTest : public ::testing::Test
 protected:
   void SetUp() override
   {
+    std::cout << "before new tree\n";
     tree = new adaptive::HLSTree(new AESDecrypter(std::string()));
     tree->supportedKeySystem_ = "urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED";
+    std::cout << "after new tree\n";
   }
 
   void TearDown() override
