@@ -112,9 +112,20 @@ bool WebVTT::Parse(uint64_t pts, uint32_t duration, const void *buffer, size_t b
           }
           else if (strncmp(cbuf, "X-TIMESTAMP-MAP=", 16) == 0)
           {
+            unsigned int num, lh, lm, ls, lms;
+            char del;
+            uint64_t localts = 0;
+            const char* local = strstr(cbuf + 16, "LOCAL:");
+            if (local &&
+              ((num = sscanf(local, "LOCAL:%u:%u:%u%c%u ", &lh, &lm, &ls, &del, &lms)) == 5 ||
+              (num = sscanf(local, "LOCAL:%u:%u%c%u ", &lm, &ls, &del, &lms)) == 4))
+            {
+              localts = lh * (num == 5 ? 3600 : 0) + lm * 60 + ls;
+              localts = localts * 1000 + lms;
+            }
             const char* mpegts = strstr(cbuf + 16, "MPEGTS:");
             if (mpegts)
-              localOffset = atoll(mpegts + 7) / 90;
+              localOffset = (atoll(mpegts + 7) / 90) - localts;
           }
           else
           {
