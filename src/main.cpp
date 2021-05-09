@@ -1293,24 +1293,24 @@ public:
     {
       switch (static_cast<AP4_MpegSampleDescription*>(desc)->GetObjectTypeId())
       {
-      case AP4_OTI_MPEG4_AUDIO:
-      case AP4_OTI_MPEG2_AAC_AUDIO_MAIN:
-      case AP4_OTI_MPEG2_AAC_AUDIO_LC:
-      case AP4_OTI_MPEG2_AAC_AUDIO_SSRP:
-        info.SetCodecName("aac");
-        break;
-      case AP4_OTI_DTS_AUDIO:
-      case AP4_OTI_DTS_HIRES_AUDIO:
-      case AP4_OTI_DTS_MASTER_AUDIO:
-      case AP4_OTI_DTS_EXPRESS_AUDIO:
-        info.SetCodecName("dca");
-        break;
-      case AP4_OTI_AC3_AUDIO:
-        info.SetCodecName("ac3");
-        break;
-      case AP4_OTI_EAC3_AUDIO:
-        info.SetCodecName("eac3");
-        break;
+        case AP4_OTI_MPEG4_AUDIO:
+        case AP4_OTI_MPEG2_AAC_AUDIO_MAIN:
+        case AP4_OTI_MPEG2_AAC_AUDIO_LC:
+        case AP4_OTI_MPEG2_AAC_AUDIO_SSRP:
+          info.SetCodecName("aac");
+          break;
+        case AP4_OTI_DTS_AUDIO:
+        case AP4_OTI_DTS_HIRES_AUDIO:
+        case AP4_OTI_DTS_MASTER_AUDIO:
+        case AP4_OTI_DTS_EXPRESS_AUDIO:
+          info.SetCodecName("dca");
+          break;
+        case AP4_OTI_AC3_AUDIO:
+          info.SetCodecName("ac3");
+          break;
+        case AP4_OTI_EAC3_AUDIO:
+          info.SetCodecName("eac3");
+          break;
       }
     }
 
@@ -2092,6 +2092,7 @@ Session::Session(MANIFEST_TYPE manifestType,
   }
 
   ignore_display_ = kodi::GetSettingBoolean("IGNOREDISPLAY");
+  chapter_seek_ = false;
 
   if (!strCert.empty())
   {
@@ -2912,6 +2913,7 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
               static_cast<int>((pi - adaptiveTree_->periods_.begin()) + 1));
     SeekChapter((pi - adaptiveTree_->periods_.begin()) + 1);
     chapter_seek_time_ = seekTime;
+    chapter_seek_ = true;
     return true;
   }
 
@@ -2963,13 +2965,20 @@ bool Session::SeekTime(double seekTime, unsigned int streamId, bool preceeding)
                     "seekTime(%0.1lf) for Stream:%d continues at %0.1lf (PTS: %llu)", seekTime,
                     (*b)->info_.GetPhysicalIndex(), destTime, (*b)->reader_->PTS());
           if ((*b)->info_.GetStreamType() == INPUTSTREAM_TYPE_VIDEO)
-            seekTime = destTime, seekTimeCorrected = (*b)->reader_->PTS(), preceeding = false;
+          {
+            seekTime = destTime;
+            seekTimeCorrected = (*b)->reader_->PTS();
+            if (chapter_seek_)
+              seekTimeCorrected -= chapterTime * STREAM_TIME_BASE;
+            preceeding = false;
+          }
           ret = true;
         }
       }
       else
         (*b)->reader_->Reset(true);
     }
+  chapter_seek_ = false;
   return ret;
 }
 

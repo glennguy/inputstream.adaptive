@@ -207,6 +207,7 @@ private:
   int manual_streams_;
   uint64_t elapsed_time_, chapter_start_time_; // In STREAM_TIME_BASE
   double chapter_seek_time_; // In seconds
+  bool chapter_seek_;
   uint8_t media_type_mask_;
   uint8_t drmConfig_;
   bool ignore_display_;
