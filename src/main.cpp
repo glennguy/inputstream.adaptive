@@ -3696,6 +3696,8 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
       }
   }
   m_session->EnableStream(stream, true);
+  bool bStarted;
+  stream->reader_->Start(bStarted);
   return stream->reader_->GetInformation(stream->info_) || needRefetch;
 }
 
