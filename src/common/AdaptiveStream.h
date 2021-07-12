@@ -72,22 +72,42 @@ namespace adaptive
     bool waitingForSegment(bool checkTime = false) const;
     void FixateInitialization(bool on);
     void SetSegmentFileOffset(uint64_t offset) { m_segmentFileOffset = offset; };
+    bool StreamChanged() { return stream_changed_; }
   protected:
-    virtual bool download(const char* url, const std::map<std::string, std::string> &mediaHeaders){ return false; };
-    virtual bool parseIndexRange() { return false; };
-    bool write_data(const void *buffer, size_t buffer_size);
+    virtual bool download(const char* url,
+                          const std::map<std::string, std::string>& mediaHeaders,
+                          std::string* lockfreeBuffer)
+    {
+      return false;
+    };
+    virtual bool parseIndexRange(AdaptiveTree::Representation* rep, const std::string& buffer)
+    {
+      return false;
+    };
+    bool write_data(const void* buffer, size_t buffer_size, std::string* lockfreeBuffer);
+
+  private:
+    enum STATE
+    {
+      RUNNING,
+      STOPPED,
+      PAUSED
+    } state_;
 
   private:
     // Segment download section
     void ResetSegment(const AdaptiveTree::Segment* segment);
     void ResetActiveBuffer(bool oneValid);
-    void StopWorker();
+    void StopWorker(STATE state);
     bool download_segment();
     void worker();
-    bool prepareDownload();
+    bool prepareNextDownload();
+    bool prepareDownload(const AdaptiveTree::Representation* rep,
+                         const AdaptiveTree::Segment* seg,
+                         unsigned int segNum);
     int SecondsSinceUpdate() const;
-    static void ReplacePlaceholder(std::string &url, const std::string placeholder, uint64_t value);
-    bool ResolveSegmentBase(const AdaptiveTree::Representation* rep, bool stopWorker);
+    static void ReplacePlaceholder(std::string &url, uint64_t index, uint64_t timeStamp);
+    bool ResolveSegmentBase(AdaptiveTree::Representation* rep, bool stopWorker);
 
     struct THREADDATA
     {
@@ -130,13 +150,18 @@ namespace adaptive
       std::string buffer;
       AdaptiveTree::Segment segment;
       unsigned int segment_number;
-      const AdaptiveTree::Representation* rep;
+      AdaptiveTree::Representation* rep;
     };
     std::vector<SEGMENTBUFFER> segment_buffers_;
     // number of segmentbuffers whith valid segment, always >= valid_segment_buffers_
     size_t available_segment_buffers_;
     // number of segment_buffers which are downloaded / downloading
+    uint32_t assured_buffer_length_;
+    uint32_t max_buffer_length_;
     size_t valid_segment_buffers_;
+    uint32_t rep_counter_;
+    AdaptiveTree::Representation *prev_rep_;
+
 
     std::map<std::string, std::string> media_headers_, download_headers_;
     std::size_t segment_read_pos_;
@@ -146,10 +171,11 @@ namespace adaptive
 
     uint16_t download_pssh_set_;
     unsigned int download_segNum_;
-    bool stopped_, worker_processing_;
+    bool worker_processing_;
     uint8_t m_iv[16];
     bool m_fixateInitialization;
     uint64_t m_segmentFileOffset;
     bool play_timeshift_buffer_;
+    bool stream_changed_ = false;
   };
 };
