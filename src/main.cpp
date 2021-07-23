@@ -2314,7 +2314,8 @@ Session::Session(MANIFEST_TYPE manifestType,
     chapter_start_time_(0),
     chapter_seek_time_(0.0),
     play_timeshift_buffer_(play_timeshift_buffer),
-    force_secure_decoder_(force_secure_decoder)
+    force_secure_decoder_(force_secure_decoder),
+    first_period_initialized_(false)
 {
   switch (manifest_type_)
   {
@@ -2630,7 +2631,7 @@ bool Session::InitializeDRM()
         {
           Session::STREAM stream(*adaptiveTree_,
                                  adaptiveTree_->current_period_->psshSets_[ses].adaptation_set_,
-                                 media_headers_, representationChooser_, play_timeshift_buffer_, 0);
+                                 media_headers_, representationChooser_, play_timeshift_buffer_, 0, false);
 
           stream.enabled = true;
           stream.stream_.start_stream();
@@ -2876,7 +2877,7 @@ bool Session::InitializePeriod()
     do
     {
       streams_.push_back(new STREAM(*adaptiveTree_, adp, media_headers_, representationChooser_,
-                                    play_timeshift_buffer_, repId));
+                                    play_timeshift_buffer_, repId, first_period_initialized_));
       STREAM& stream(*streams_.back());
 
       uint32_t flags = INPUTSTREAM_FLAG_NONE;
@@ -2922,6 +2923,7 @@ bool Session::InitializePeriod()
 
     } while (repId-- != (manual_streams ? 1 : 0));
   }
+  first_period_initialized_ = true;
   return true;
 }
 
