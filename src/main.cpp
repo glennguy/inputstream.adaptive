@@ -3840,6 +3840,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
     {
       UnlinkIncludedStreams(stream);
       stream->reset();
+      stream->stream_.Reset();
     }
     else
       return false;
