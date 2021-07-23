@@ -2812,6 +2812,11 @@ bool Session::InitializeDRM()
     }
   }
   representationChooser_->Prepare(secure_video_session);
+
+  representationChooser_->decrypter_caps_.resize(cdm_sessions_.size());
+  for (const Session::CDMSESSION& cdmsession : cdm_sessions_)
+    representationChooser_->decrypter_caps_.push_back(cdmsession.decrypter_caps_);
+
   return true;
 }
 
@@ -2852,10 +2857,6 @@ bool Session::InitializePeriod()
     if (!InitializeDRM())
       return false;
   }
-
-  representationChooser_->decrypter_caps_.resize(cdm_sessions_.size());
-  for (const Session::CDMSESSION& cdmsession : cdm_sessions_)
-    representationChooser_->decrypter_caps_.push_back(cdmsession.decrypter_caps_);
 
   while ((adp = adaptiveTree_->GetAdaptationSet(i++)))
   {
