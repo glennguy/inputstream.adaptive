@@ -3904,6 +3904,7 @@ bool CInputStreamAdaptive::OpenStream(int streamid)
       stream->disable();
       return false;
     }
+    m_session->OnSegmentChanged(&stream->stream_);
   }
   else if (rep->containerType_ == adaptive::AdaptiveTree::CONTAINERTYPE_ADTS)
   {
