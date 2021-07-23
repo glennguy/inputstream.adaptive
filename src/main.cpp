@@ -391,10 +391,10 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
     kodi::Log(ADDON_LOG_DEBUG, "bandwidth set: %u ",bandwidth);
 
     if(*valid_segment_buffers_ >= *assured_buffer_length_)
-      {
-        return best_rep_;
-      }
-    if( (*valid_segment_buffers_>6) && (bandwidth >= rep->bandwidth_ *2 ) && (rep != best_rep_) && (best_rep_->bandwidth_ <=bandwidth)  ) //overwrite case, more internet data
+    {
+      return adp->best_rep_;
+    }
+    if( (*valid_segment_buffers_>6) && (bandwidth >= rep->bandwidth_ *2 ) && (rep != adp->best_rep_) && (adp->best_rep_->bandwidth_ <=bandwidth)  ) //overwrite case, more internet data
     {
       *valid_segment_buffers_ =std::max(*valid_segment_buffers_/2, *valid_segment_buffers_-rep_counter_);
       *available_segment_buffers_=  *valid_segment_buffers_; //so that ensure writes again with new rep
@@ -420,11 +420,11 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
         bestScore = score;
         next_rep = (*br);
       }
-      else if (!min_rep_ || (*br)->bandwidth_ < min_rep_->bandwidth_)
-        min_rep_ = (*br);
+      else if (!adp->min_rep_ || (*br)->bandwidth_ < adp->min_rep_->bandwidth_)
+        adp->min_rep_ = (*br);
     }
     if (!next_rep)
-      next_rep = min_rep_;
+      next_rep = adp->min_rep_;
 
     //kodi::Log(ADDON_LOG_DEBUG, "NextRep bandwidth: %u ",next_rep->bandwidth_);
 
@@ -471,21 +471,21 @@ struct DefaultRepresentationChooser : adaptive::AdaptiveTree::RepresentationChoo
         bestScore = score;
         new_rep   = (*br);
       }
-      else if (!min_rep_ || (*br)->bandwidth_ < min_rep_->bandwidth_)
-        min_rep_ = (*br);
+      else if (!adp->min_rep_ || (*br)->bandwidth_ < adp->min_rep_->bandwidth_)
+        adp->min_rep_ = (*br);
 
       if (    ( (*br)->hdcpVersion_ <= hdcpVersion) &&  ((!hdcpLimit || static_cast<uint32_t>((*br)->width_) * (*br)->height_ <= hdcpLimit))
         &&   (  (score = abs(static_cast<int>((*br)->width_ * (*br)->height_) - static_cast<int>(width_ * height_) ) ) < valScore) )  //it is bandwidth independent(if multiple same resolution bandwidth, will select first rep)
       {
-        valScore= score;
-        best_rep_= (*br);
+        valScore = score;
+        adp->best_rep_ = (*br);
       }
 
     }
     if (!new_rep)
-      new_rep = min_rep_;
-    if(!best_rep_)
-      best_rep_=min_rep_;
+      new_rep = adp->min_rep_;
+    if(!adp->best_rep_)
+      adp->best_rep_ = adp->min_rep_;
     kodi::Log(ADDON_LOG_DEBUG, "ASSUREDBUFFERDURATION selected: %d ",new_rep->assured_buffer_duration_);
     kodi::Log(ADDON_LOG_DEBUG, "MAXBUFFERDURATION selected: %d "    ,new_rep->max_buffer_duration_);
 
