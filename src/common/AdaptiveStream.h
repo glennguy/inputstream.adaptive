@@ -106,7 +106,7 @@ namespace adaptive
                          const AdaptiveTree::Segment* seg,
                          unsigned int segNum);
     int SecondsSinceUpdate() const;
-    static void ReplacePlaceholder(std::string &url, uint64_t index, uint64_t timeStamp);
+    static void ReplacePlaceholder(std::string& url, const std::string placeholder, uint64_t value);
     bool ResolveSegmentBase(AdaptiveTree::Representation* rep, bool stopWorker);
 
     struct THREADDATA

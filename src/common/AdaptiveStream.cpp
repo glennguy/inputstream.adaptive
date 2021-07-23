@@ -176,7 +176,7 @@ int AdaptiveStream::SecondsSinceUpdate() const
           .count());
 }
 
-bool AdaptiveStream::write_data(const void* buffer, size_t buffer_size)
+bool AdaptiveStream::write_data(const void* buffer, size_t buffer_size, std::string* lockfreeBuffer)
 {
   if (lockfreeBuffer)
   {

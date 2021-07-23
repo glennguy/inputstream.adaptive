@@ -2795,7 +2795,7 @@ bool Session::InitializeDRM()
         else if (session.decrypter_caps_.flags & SSD::SSD_DECRYPTER::SSD_CAPS::SSD_SECURE_PATH)
         {
           session.cdm_session_str_ = session.single_sample_decryptor_->GetSessionId();
-          secure_video_session_ = true;
+          secure_video_session = true;
 
           if (allow_no_secure_decoder_
               && !force_secure_decoder_ && !adaptiveTree_->current_period_->need_secure_decoder_)
@@ -2936,8 +2936,7 @@ void Session::UpdateStream(STREAM& stream)
     stream.info_.SetAspect((float)stream.info_.GetWidth() / stream.info_.GetHeight());
   stream.encrypted = rep->get_psshset() > 0;
 
-  free((void*)stream.info_.m_ExtraData), stream.info_.m_ExtraData = nullptr;  //FIX
-  stream.info_.m_ExtraSize = 0;  //FIX
+  stream.info_.SetExtraData(nullptr, 0);
   if (rep->codec_private_data_.size())
   {
     std::string annexb;
@@ -3799,11 +3798,11 @@ void CInputStreamAdaptive::UnlinkIncludedStreams(Session::STREAM* stream)
   {
     Session::STREAM* mainStream(m_session->GetStream(stream->mainId_));
     if (mainStream->reader_)
-      mainStream->reader_->RemoveStreamType(stream->info_.m_streamType);
+      mainStream->reader_->RemoveStreamType(stream->info_.GetStreamType());
   }
   const adaptive::AdaptiveTree::Representation* rep(stream->stream_.getRepresentation());
   if (rep->flags_ & adaptive::AdaptiveTree::Representation::INCLUDEDSTREAM)
-    m_IncludedStreams[stream->info_.m_streamType] = 0;
+    m_IncludedStreams[stream->info_.GetStreamType()] = 0;
 }
 
 void CInputStreamAdaptive::EnableStream(int streamid, bool enable)
