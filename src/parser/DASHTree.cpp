@@ -1570,6 +1570,11 @@ static void XMLCALL end(void* data, const char* el)
 +---------------------------------------------------------------------*/
 bool DASHTree::open(const std::string& url, const std::string& manifestUpdateParam)
 {
+  return open(url, manifestUpdateParam, std::map<std::string, std::string>());
+}
+
+bool DASHTree::open(const std::string& url, const std::string& manifestUpdateParam, std::map<std::string, std::string> additionalHeaders)
+{
   parser_ = XML_ParserCreate(NULL);
   if (!parser_)
     return false;
@@ -1581,7 +1586,8 @@ bool DASHTree::open(const std::string& url, const std::string& manifestUpdatePar
   strXMLText_.clear();
 
   PrepareManifestUrl(url, manifestUpdateParam);
-  bool ret = download(manifest_url_.c_str(), manifest_headers_) && !periods_.empty();
+  additionalHeaders.insert(manifest_headers_.begin(), manifest_headers_.end());
+  bool ret = download(manifest_url_.c_str(), additionalHeaders) && !periods_.empty();
 
   XML_ParserFree(parser_);
   parser_ = 0;
@@ -1616,7 +1622,7 @@ void DASHTree::RefreshSegments(Period* period,
 {
   if ((type == VIDEO || type == AUDIO))
   {
-    lastUpdated_ = std::chrono::system_clock::now();
+    lastUpdated_ = GetTimePointNowTime();
     RefreshUpdateThread();
     RefreshLiveSegments();
   }
@@ -1763,11 +1769,23 @@ void DASHTree::RefreshLiveSegments()
                   if ((*br)->flags_ & DASHTree::Representation::TIMELINE)
                   {
                     uint64_t search_pts = (*br)->segments_[0]->range_begin_;
+                    uint64_t misaligned = 0;
                     for (const auto& s : (*brd)->segments_.data)
                     {
-                      if (s.range_begin_ >= search_pts)
+                      if (misaligned)
+                      {
+                        uint64_t ptsDiff = s.range_begin_ - (&s - 1)->range_begin_;
+                        // our misalignment is small ( < 2%), let's decrement the start number
+                        if (misaligned < (ptsDiff * 2 / 100))
+                          --(*brd)->startNumber_;
                         break;
-                      ++(*brd)->startNumber_;
+                      }
+                      if (s.range_begin_ == search_pts)
+                        break;
+                      else if (s.range_begin_ > search_pts)
+                        misaligned = search_pts - (&s - 1)->range_begin_;
+                      else 
+                        ++(*brd)->startNumber_;
                     }
                   }
                   else if ((*br)->segments_[0]->startPTS_ == (*brd)->segments_[0]->startPTS_)

@@ -30,6 +30,7 @@ class ATTRIBUTE_HIDDEN DASHTree : public AdaptiveTree
 public:
   DASHTree();
   virtual bool open(const std::string& url, const std::string& manifestUpdateParam) override;
+  virtual bool open(const std::string& url, const std::string& manifestUpdateParam, std::map<std::string, std::string> additionalHeaders) override;
   virtual bool write_data(void* buffer, size_t buffer_size, void* opaque) override;
   virtual void RefreshSegments(Period* period,
                                AdaptationSet* adp,
@@ -37,6 +38,11 @@ public:
                                StreamType type) override;
 
   virtual uint64_t GetNowTime() { return time(0); };
+  virtual std::chrono::system_clock::time_point GetTimePointNowTime()
+  {
+    return std::chrono::system_clock::now();
+  };
+  virtual void SetLastUpdated(std::chrono::system_clock::time_point tm){};
   void SetUpdateInterval(uint32_t interval) { updateInterval_ = interval; };
   uint64_t pts_helper_, timeline_time_;
   uint32_t firstStartNumber_;

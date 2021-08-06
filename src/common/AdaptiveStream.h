@@ -87,6 +87,8 @@ namespace adaptive
       return false;
     };
     bool write_data(const void* buffer, size_t buffer_size, std::string* lockfreeBuffer);
+    virtual void SetLastUpdated(std::chrono::system_clock::time_point tm) {};
+    std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
 
   private:
     enum STATE
@@ -169,7 +171,6 @@ namespace adaptive
     std::size_t segment_read_pos_;
     uint64_t absolute_position_;
     uint64_t currentPTSOffset_, absolutePTSOffset_;
-    std::chrono::time_point<std::chrono::system_clock> lastUpdated_;
 
     uint16_t download_pssh_set_;
     unsigned int download_segNum_;
