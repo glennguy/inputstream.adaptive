@@ -1,5 +1,6 @@
 #include "TestHelper.h"
-
+#include <chrono>
+#include <thread>
 #include <gtest/gtest.h>
 
 
@@ -40,10 +41,13 @@ class DASHTreeAdaptiveStreamTest : public DASHTreeTest
 protected:
   void SetUp() override
   {
-    testHelper::lastDownloadUrl.clear();
     DASHTreeTest::SetUp();
-    videoStream = new TestAdaptiveStream(*tree, adaptive::AdaptiveTree::StreamType::VIDEO);
-    audioStream = new TestAdaptiveStream(*tree, adaptive::AdaptiveTree::StreamType::AUDIO);
+    m_chooser = new DefaultRepresentationChooser();
+    m_chooser->hdcp_override_ = true;
+    m_chooser->assured_buffer_duration_ = 5;
+    m_chooser->max_buffer_duration_ = 5;
+    tree->representation_chooser_ = m_chooser;
+
   }
 
   void TearDown() override
@@ -52,13 +56,30 @@ protected:
     delete audioStream;
     videoStream = nullptr;
     audioStream = nullptr;
+    newStream = nullptr;
     DASHTreeTest::TearDown();
+  }
+
+  void SetVideoStream(TestAdaptiveStream* newStream)
+  {
+    delete videoStream;
+    videoStream = newStream;
+  }
+
+  void SetAudioStream(TestAdaptiveStream* newStream)
+  {
+    delete audioStream;
+    audioStream = newStream;
+  }
+
+  TestAdaptiveStream* NewStream(adaptive::AdaptiveTree::AdaptationSet* adp, bool playTsb=true)
+  {
+    return new TestAdaptiveStream(*tree, adp, mediaHeaders, m_chooser, playTsb, 0, false);
   }
 
   void ReadSegments(TestAdaptiveStream* stream,
                     uint32_t bytesToRead,
-                    uint32_t reads,
-                    bool clearUrls = true)
+                    uint32_t reads)
   {
     // Rudimentary simulation of running a stream and consuming segment data.
     // Normally AdaptiveStream::read is called from a sample reader for the exact
@@ -66,22 +87,18 @@ protected:
     // exhausted. Here our segments are a fixed size (16 bytes) and for testing we can
     // optimally call to read 1 segment per AdaptiveStream::read
 
-    if (clearUrls)
-      downloadedUrls.clear();
-
     for (unsigned int i = 0; i < reads; i++)
-      if (stream->read(buf, bytesToRead))
-        downloadedUrls.push_back(testHelper::lastDownloadUrl);
-      else
+      if (!stream->read(buf, bytesToRead))
         break;
     // Decrement last updated time so live manifest will always refresh on each segment
     // in order to test manifest update changes
     tree->SetLastUpdated(std::chrono::system_clock::now() - std::chrono::seconds(2));
     stream->SetLastUpdated(std::chrono::system_clock::now() - std::chrono::seconds(2));
   }
-
-  TestAdaptiveStream* videoStream;
-  TestAdaptiveStream* audioStream;
+  DefaultRepresentationChooser* m_chooser;
+  TestAdaptiveStream* videoStream = nullptr;
+  TestAdaptiveStream* audioStream = nullptr;
+  TestAdaptiveStream* newStream = nullptr;
   std::vector<std::string> downloadedUrls;
   std::map<std::string, std::string> mediaHeaders;
   unsigned char buf[16];
@@ -254,55 +271,50 @@ TEST_F(DASHTreeTest, CalculateCorrectFpsScaleFromAdaptionSet)
 TEST_F(DASHTreeAdaptiveStreamTest, replacePlaceHolders)
 {
   OpenTestFile("mpd/placeholders.mpd", "https://foo.bar/placeholders.mpd", "");
-
-  videoStream->prepare_stream(tree->current_period_->adaptationSets_[0], 0, 0, 0, 0, 0, 0, 0,
-                              mediaHeaders);
-  videoStream->start_stream(~0, 0, 0, true);
+  tree->has_timeshift_buffer_ = false;
+  SetVideoStream(NewStream(tree->periods_[0]->adaptationSets_[0]));
+  
+  videoStream->start_stream();
   ReadSegments(videoStream, 16, 5);
-  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/videosd-400x224/segment_487050.m4s");
-  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/videosd-400x224/segment_487054.m4s");
-
-  videoStream->prepare_stream(tree->current_period_->adaptationSets_[1], 0, 0, 0, 0, 0, 0, 0,
-                               mediaHeaders);
-  videoStream->start_stream(~0, 0, 0, true);
+  EXPECT_EQ(videoStream->download_list_[0], "https://foo.bar/videosd-400x224/init.mp4");
+  EXPECT_EQ(videoStream->download_list_[4], "https://foo.bar/videosd-400x224/segment_487053.m4s");
+  
+  SetVideoStream(NewStream(tree->periods_[0]->adaptationSets_[1]));
+  videoStream->start_stream();
   ReadSegments(videoStream, 16, 5);
-  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/videosd-400x224/segment_00487050.m4s");
-  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/videosd-400x224/segment_00487054.m4s");
-
-  videoStream->prepare_stream(tree->current_period_->adaptationSets_[2], 0, 0, 0, 0, 0, 0, 0,
-                               mediaHeaders);
-  videoStream->start_stream(~0, 0, 0, true);
+  EXPECT_EQ(videoStream->download_list_[1], "https://foo.bar/videosd-400x224/segment_00487050.m4s");
+  EXPECT_EQ(videoStream->download_list_[4], "https://foo.bar/videosd-400x224/segment_00487053.m4s");
+ 
+  
+  SetVideoStream(NewStream(tree->periods_[0]->adaptationSets_[2]));
+  videoStream->start_stream();
   ReadSegments(videoStream, 16, 5);
-  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/videosd-400x224/segment_263007000000.m4s");
-  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/videosd-400x224/segment_263009160000.m4s");
+  EXPECT_EQ(videoStream->download_list_[1], "https://foo.bar/videosd-400x224/segment_263007000000.m4s");
+  EXPECT_EQ(videoStream->download_list_[4], "https://foo.bar/videosd-400x224/segment_263008620000.m4s");
 
-  videoStream->prepare_stream(tree->current_period_->adaptationSets_[3], 0, 0, 0, 0, 0, 0, 0,
-                               mediaHeaders);
-  videoStream->start_stream(~0, 0, 0, true);
+  SetVideoStream(NewStream(tree->periods_[0]->adaptationSets_[3]));
+  videoStream->start_stream();
   ReadSegments(videoStream, 16, 5);
-  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/videosd-400x224/segment_00263007000000");
-  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/videosd-400x224/segment_00263009160000");
+  EXPECT_EQ(videoStream->download_list_[1], "https://foo.bar/videosd-400x224/segment_00263007000000");
+  EXPECT_EQ(videoStream->download_list_[4], "https://foo.bar/videosd-400x224/segment_00263008620000");
 
-  videoStream->prepare_stream(tree->current_period_->adaptationSets_[4], 0, 0, 0, 0, 0, 0, 0,
-                               mediaHeaders);
-  videoStream->start_stream(~0, 0, 0, true);
+  SetVideoStream(NewStream(tree->periods_[0]->adaptationSets_[4]));
+  videoStream->start_stream();
   ReadSegments(videoStream, 16, 5);
-  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/videosd-400x224/segment_487050.m4s?t=263007000000");
-  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/videosd-400x224/segment_487054.m4s?t=263009160000");
+  EXPECT_EQ(videoStream->download_list_[1], "https://foo.bar/videosd-400x224/segment_487050.m4s?t=263007000000");
+  EXPECT_EQ(videoStream->download_list_[4], "https://foo.bar/videosd-400x224/segment_487053.m4s?t=263008620000");
 
-  videoStream->prepare_stream(tree->current_period_->adaptationSets_[5], 0, 0, 0, 0, 0, 0, 0,
-                               mediaHeaders);
-  videoStream->start_stream(~0, 0, 0, true);
+  SetVideoStream(NewStream(tree->periods_[0]->adaptationSets_[5]));
+  videoStream->start_stream();
   ReadSegments(videoStream, 16, 5);
-  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/videosd-400x224/segment_00487050.m4s?t=00263007000000");
-  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/videosd-400x224/segment_00487054.m4s?t=00263009160000");
+  EXPECT_EQ(videoStream->download_list_[1], "https://foo.bar/videosd-400x224/segment_00487050.m4s?t=00263007000000");
+  EXPECT_EQ(videoStream->download_list_[4], "https://foo.bar/videosd-400x224/segment_00487053.m4s?t=00263008620000");
 
-  videoStream->prepare_stream(tree->current_period_->adaptationSets_[6], 0, 0, 0, 0, 0, 0, 0,
-                               mediaHeaders);
-  videoStream->start_stream(~0, 0, 0, true);
+  SetVideoStream(NewStream(tree->periods_[0]->adaptationSets_[6]));
+  videoStream->start_stream();
   ReadSegments(videoStream, 16, 5);
-  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/videosd-400x224/segment.m4s");
-  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/videosd-400x224/segment.m4s");
+  EXPECT_EQ(videoStream->download_list_[0], "https://foo.bar/videosd-400x224/init.mp4");
+  EXPECT_EQ(videoStream->download_list_[4], "https://foo.bar/videosd-400x224/segment.m4s");
 }
 
 TEST_F(DASHTreeTest, updateParameterLiveSegmentTimeline)
@@ -405,22 +417,22 @@ TEST_F(DASHTreeAdaptiveStreamTest, subtitles)
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[11]->type_, DASHTestTree::SUBTITLE);
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[11]->mimeType_, "application/mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[11]->representations_[0]->codecs_, "stpp");
-  videoStream->prepare_stream(tree->periods_[0]->adaptationSets_[11], 0, 0, 0, 0, 0, 0, 0,
-                              mediaHeaders);
-  videoStream->start_stream(~0, 0, 0, true);
+
+  SetVideoStream(NewStream(tree->periods_[0]->adaptationSets_[11]));
+  videoStream->start_stream();
   ReadSegments(videoStream, 16, 5);
-  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/11/0001.m4s");
-  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/11/0005.m4s");
+  EXPECT_EQ(videoStream->download_list_[0], "https://foo.bar/11/init.mp4");
+  EXPECT_EQ(videoStream->download_list_[4], "https://foo.bar/11/0004.m4s");
 
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[12]->type_, DASHTestTree::SUBTITLE);
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[12]->mimeType_, "application/mp4");
   EXPECT_EQ(tree->periods_[0]->adaptationSets_[12]->representations_[0]->codecs_, "stpp.ttml.im1t");
-  videoStream->prepare_stream(tree->periods_[0]->adaptationSets_[12], 0, 0, 0, 0, 0, 0, 0,
-                              mediaHeaders);
-  videoStream->start_stream(~0, 0, 0, true);
+
+  SetVideoStream(NewStream(tree->periods_[0]->adaptationSets_[12]));
+  videoStream->start_stream();
   ReadSegments(videoStream, 16, 5);
-  EXPECT_EQ(downloadedUrls[0], "https://foo.bar/tears-of-steel-multiple-subtitles-12-0.dash");
-  EXPECT_EQ(downloadedUrls.back(), "https://foo.bar/tears-of-steel-multiple-subtitles-12-16000.dash");
+  EXPECT_EQ(videoStream->download_list_[0], "https://foo.bar/tears-of-steel-multiple-subtitles-12.dash");
+  EXPECT_EQ(videoStream->download_list_[4], "https://foo.bar/tears-of-steel-multiple-subtitles-12-12000.dash");
 }
 
 TEST_F(DASHTreeTest, CalculateMultipleSegTpl)
@@ -482,9 +494,8 @@ TEST_F(DASHTreeTest, CalculateReprensentationBaseURL)
 TEST_F(DASHTreeAdaptiveStreamTest, MisalignedSegmentTimeline)
 {
   OpenTestFile("mpd/bad_segtimeline_1.mpd", "https://foo.bar/placeholders.mpd", "");
-  audioStream->prepare_stream(tree->current_period_->adaptationSets_[1], 0, 0, 0, 0, 0, 0, 0,
-                              mediaHeaders);
-  audioStream->start_stream(~0, 0, 0, false);
+  SetAudioStream(NewStream(tree->current_period_->adaptationSets_[1]));
+  audioStream->start_stream();
 
   ReadSegments(audioStream, 16, 1);
 

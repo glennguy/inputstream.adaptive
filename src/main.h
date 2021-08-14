@@ -79,6 +79,7 @@ protected:
                 std::string* lockfreeBuffer) override;
   bool parseIndexRange(adaptive::AdaptiveTree::Representation* rep,
                        const std::string& buffer) override;
+  bool download_segment() override { return AdaptiveStream::download_segment(); }
 
 private:
   DefaultRepresentationChooser* chooser_ = nullptr;
