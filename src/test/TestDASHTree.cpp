@@ -88,8 +88,10 @@ protected:
     // optimally call to read 1 segment per AdaptiveStream::read
 
     for (unsigned int i = 0; i < reads; i++)
+    {
       if (!stream->read(buf, bytesToRead))
-        break;
+        ;//break;
+    }
     // Decrement last updated time so live manifest will always refresh on each segment
     // in order to test manifest update changes
     tree->SetLastUpdated(std::chrono::system_clock::now() - std::chrono::seconds(2));
@@ -270,6 +272,7 @@ TEST_F(DASHTreeTest, CalculateCorrectFpsScaleFromAdaptionSet)
 
 TEST_F(DASHTreeAdaptiveStreamTest, replacePlaceHolders)
 {
+  printf("Boo");
   OpenTestFile("mpd/placeholders.mpd", "https://foo.bar/placeholders.mpd", "");
   tree->has_timeshift_buffer_ = false;
   SetVideoStream(NewStream(tree->periods_[0]->adaptationSets_[0]));

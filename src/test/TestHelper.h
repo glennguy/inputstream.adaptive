@@ -29,16 +29,19 @@ public:
     size_t repId,
     bool choose_rep)
     : adaptive::AdaptiveStream(tree, adp, media_headers, play_timeshift_buffer, repId, choose_rep),
-    chooser_(chooser) {};
+    chooser_(chooser) {
+    ss << "Sixteen bytes!!!";
+  };
   std::chrono::system_clock::time_point mock_time_stream = std::chrono::system_clock::now();
   void SetLastUpdated(std::chrono::system_clock::time_point tm) override { lastUpdated_ = tm; };
   std::vector<std::string> download_list_;
-  virtual bool download_segment() override;
+  std::stringstream ss;
 
 protected:
   virtual bool download(const char* url,
     const std::map<std::string, std::string>& mediaHeaders,
     std::string* lockfreeBuffer) override;
+  virtual bool download_segment() override;
 
 private:
   DefaultRepresentationChooser* chooser_ = nullptr;

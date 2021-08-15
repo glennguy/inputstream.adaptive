@@ -2043,7 +2043,7 @@ Session::Session(MANIFEST_TYPE manifestType,
   adaptiveTree_->representation_chooser_ = representationChooser_;
 
   std::string fn(profile_path_ + "bandwidth.bin");
-  FILE* f = fopen(fn.c_str(), "rb");
+  /*FILE* f = fopen(fn.c_str(), "rb");
   if (f)
   {
     double val;
@@ -2055,8 +2055,8 @@ Session::Session(MANIFEST_TYPE manifestType,
     }
     fclose(f);
   }
-  else
-    representationChooser_->bandwidth_ = 4000000;
+  else*/
+    representationChooser_->bandwidth_ = 100000;
   kodi::Log(ADDON_LOG_DEBUG, "Initial bandwidth: %u ", representationChooser_->bandwidth_);
 
   representationChooser_->max_resolution_ = kodi::GetSettingInt("MAXRESOLUTION");
@@ -2676,6 +2676,9 @@ bool Session::InitializePeriod()
   while ((adp = adaptiveTree_->GetAdaptationSet(i++)))
   {
     if (adp->representations_.empty())
+      continue;
+
+    if (adp->type_ == adaptive::AdaptiveTree::SUBTITLE)
       continue;
 
     bool manual_streams = adp->type_ == adaptive::AdaptiveTree::StreamType::VIDEO

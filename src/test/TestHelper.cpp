@@ -55,12 +55,13 @@ bool adaptive::AdaptiveTree::download(const char* url,
 
 bool TestAdaptiveStream::download_segment()
 {
+  printf("DownloadSegment TH");
   if (download_url_.empty())
     return false;
-  bool ret = download(download_url_.c_str(), download_headers_, nullptr);
-  if (ret)
+  /*bool ret = download(download_url_.c_str(), download_headers_, nullptr);
+  if (ret)*/
     download_list_.push_back(download_url_);
-  return ret;
+  return true;
 }
 
 bool TestAdaptiveStream::download(const char* url,
@@ -68,12 +69,22 @@ bool TestAdaptiveStream::download(const char* url,
   std::string* lockfreeBuffer)
 {
   size_t nbRead = ~0UL;
-  std::stringstream ss("Sixteen bytes!!!");
 
   char buf[16];
   size_t nbReadOverall = 0;
-  while ((nbRead = ss.readsome(buf, 16)) > 0 && ~nbRead && write_data(buf, nbRead, lockfreeBuffer))
+  ss.clear();
+  ss.seekg(0);
+  while (true)
+  {
+    ss.read(buf, 16);
+    nbRead = ss.gcount();
+    if (!nbRead || !~nbRead || !write_data(buf, nbRead, lockfreeBuffer))
+      break;
     nbReadOverall += nbRead;
+  }
+
+  /*while ((nbRead = ss.readsome(buf, 16)) > 0 && ~nbRead && write_data(buf, nbRead, lockfreeBuffer))
+    nbReadOverall += nbRead;*/
 
   if (!nbReadOverall)
   {

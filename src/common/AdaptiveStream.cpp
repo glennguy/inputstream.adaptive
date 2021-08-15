@@ -118,6 +118,7 @@ void AdaptiveStream::StopWorker(STATE state)
 
 bool AdaptiveStream::download_segment()
 {
+  printf("DownloadSegment AS");
   if (download_url_.empty())
     return false;
 
@@ -157,6 +158,7 @@ void AdaptiveStream::worker()
       while (!ret && state_ == RUNNING && retryCount-- && tree_.has_timeshift_buffer_)
       {
         std::this_thread::sleep_for(std::chrono::seconds(1));
+        printf("Trying to reload segment");
         Log(LOGLEVEL_DEBUG, "AdaptiveStream: trying to reload segment ...");
         ret = download_segment();
       }
@@ -547,15 +549,19 @@ bool AdaptiveStream::ensureSegment()
       uint32_t nextsegmentPosold = current_rep_->get_segment_pos(nextSegment);
       uint32_t nextsegno = current_rep_->getSegmentNumber(nextSegment);
       AdaptiveTree::Representation* newRep;
+
+      const AdaptiveTree::Segment* tempSegment = current_rep_->segments_[current_rep_->segments_.size() - 2];
+      unsigned int tempSegmentNumber = current_rep_->getSegmentNumber(tempSegment);
       if (segment_buffers_[0].segment_number == ~0L || valid_segment_buffers_ == 0 ||
-          current_adp_->type_ != AdaptiveTree::VIDEO)
+          current_adp_->type_ != AdaptiveTree::VIDEO )//|| segment_buffers_[valid_segment_buffers_ - 1].segment_number == tempSegmentNumber)
       {
         newRep = current_rep_;
       }
       else
       {
+        Log(LOGLEVEL_DEBUG, "Choose new rep!!!!");
         newRep = tree_.ChooseNextRepresentation(current_adp_,
-                                                segment_buffers_[valid_segment_buffers_ - 1].rep,
+                                                segment_buffers_[valid_segment_buffers_].rep,
                                                 &valid_segment_buffers_,&available_segment_buffers_,
                                                 &assured_buffer_length_,
                                                 &max_buffer_length_,
