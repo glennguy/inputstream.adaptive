@@ -1,0 +1,31 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 6de3bfe..0fa06d9 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -57,13 +57,13 @@ set(AP4_INCLUDE_DIRS
+   ${SOURCE_METADATA}
+ )
+ 
+-add_library(ap4 STATIC ${AP4_SOURCES})
+-target_include_directories(ap4 PUBLIC ${AP4_INCLUDE_DIRS})
++add_library(bento4 STATIC ${AP4_SOURCES})
++target_include_directories(bento4 PUBLIC ${AP4_INCLUDE_DIRS})
+ 
+ # Use the statically linked C runtime library
+ if(MSVC)
+-  set_property(TARGET ap4 PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+-  target_compile_definitions(ap4 PRIVATE -D_LIB)
++  set_property(TARGET bento4 PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
++  target_compile_definitions(bento4 PRIVATE -D_LIB)
+ endif()
+ 
+ # Apps
+@@ -73,7 +73,7 @@ file(GLOB BENTO4_APPS RELATIVE ${SOURCE_ROOT}/Apps ${SOURCE_ROOT}/Apps/*)
+ foreach(app ${BENTO4_APPS})
+   string(TOLOWER ${app} binary_name)
+   add_executable(${binary_name} ${SOURCE_ROOT}/Apps/${app}/${app}.cpp)
+-  target_link_libraries(${binary_name} ap4)
++  target_link_libraries(${binary_name} bento4)
+ 
+   if(MSVC)
+     set_property(TARGET ${binary_name} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
