@@ -1,0 +1,64 @@
+From aa99206d6950bf76c28911f418da519bc6dd773b Mon Sep 17 00:00:00 2001
+From: peak3d <pfau@peak3d.de>
+Date: Thu, 17 Aug 2017 10:25:57 +0200
+Subject: [PATCH 10/16] TS: Jump back to previouse payloadunit when revinding
+ forward seek / Fix Start at / audio track switch
+
+---
+ src/tsDemuxer.cpp | 4 ++++
+ src/tsDemuxer.h   | 3 +++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/src/tsDemuxer.cpp b/src/tsDemuxer.cpp
+index 073c6fa..133f541 100644
+--- a/src/tsDemuxer.cpp
++++ b/src/tsDemuxer.cpp
+@@ -38,6 +38,7 @@ using namespace TSDemux;
+ 
+ AVContext::AVContext(TSDemuxer* const demux, uint64_t pos, uint16_t channel)
+   : av_pos(pos)
++  , payload_unit_pos(0)
+   , av_data_len(FLUTS_NORMAL_TS_PACKETSIZE)
+   , av_pkt_size(0)
+   , is_configured(false)
+@@ -66,6 +67,7 @@ void AVContext::Reset(void)
+   discontinuity = false;
+   payload = NULL;
+   payload_len = 0;
++  payload_unit_pos = 0;
+   packet = NULL;
+ }
+ 
+@@ -538,6 +540,8 @@ int AVContext::ProcessTSPacket()
+   {
+     this->packet->has_stream_data = true;
+     ret = AVCONTEXT_STREAM_PID_DATA;
++    payload_unit_pos = prev_payload_unit_pos;
++    prev_payload_unit_pos = av_pos;
+   }
+   return ret;
+ }
+diff --git a/src/tsDemuxer.h b/src/tsDemuxer.h
+index 2247495..9697b55 100644
+--- a/src/tsDemuxer.h
++++ b/src/tsDemuxer.h
+@@ -82,6 +82,7 @@ namespace TSDemux
+     uint64_t Shift();
+     void GoPosition(uint64_t pos, bool rp);
+     uint64_t GetPosition() const;
++    uint64_t GetRecoveryPos() { return payload_unit_pos ? payload_unit_pos : av_pos; };
+     uint64_t GetNextPosition() const;
+     int ProcessTSPacket();
+     int ProcessTSPayload();
+@@ -110,6 +111,8 @@ namespace TSDemux
+ 
+     // Raw packet buffer
+     uint64_t av_pos;
++    uint64_t payload_unit_pos;
++    uint64_t prev_payload_unit_pos;
+     size_t av_data_len;
+     size_t av_pkt_size;
+     unsigned char av_buf[AV_CONTEXT_PACKETSIZE];
+-- 
+2.17.1.windows.2
+

@@ -1,0 +1,251 @@
+From f728d8503e8170e0fb1a3b646dfbf17b01d67791 Mon Sep 17 00:00:00 2001
+From: peak3d <pfau@peak3d.de>
+Date: Sun, 30 Jul 2017 22:42:29 +0200
+Subject: [PATCH 01/16] [HLS] First working video finished - Implement TSReader
+ - Change double -> uint64_t for pts / dts - Fix tsDemux positioning
+ (GoPosition) - extract extra-data from h264 (must be contiued for other
+ codecs) - Rework start sequence (Program-change / stream-change)
+
+---
+ src/ES_h264.cpp          | 57 +++++++++++++++++++++++++--------
+ src/ES_h264.h            | 14 +++++---
+ src/elementaryStream.cpp |  1 +
+ src/elementaryStream.h   |  3 ++
+ src/tsDemuxer.cpp        |  7 ++++
+ src/tsDemuxer.h          |  1 +
+ 6 files changed, 64 insertions(+), 19 deletions(-)
+
+diff --git a/src/ES_h264.cpp b/src/ES_h264.cpp
+index 26b4237..ef44ad9 100644
+--- a/src/ES_h264.cpp
++++ b/src/ES_h264.cpp
+@@ -51,9 +51,6 @@ ES_h264::ES_h264(uint16_t pes_pid)
+ {
+   m_Height                      = 0;
+   m_Width                       = 0;
+-  m_FPS                         = 25;
+-  m_FpsScale                    = 0;
+-  m_FrameDuration               = 0;
+   m_vbvDelay                    = -1;
+   m_vbvSize                     = 0;
+   m_PixelAspect.den             = 1;
+@@ -62,6 +59,8 @@ ES_h264::ES_h264(uint16_t pes_pid)
+   m_PTS                         = 0;
+   m_Interlaced                  = false;
+   es_alloc_init                 = 240000;
++  m_SPSRawId                    = -1;
++  m_PPSRawId                    = -1;
+   Reset();
+ }
+ 
+@@ -72,7 +71,7 @@ ES_h264::~ES_h264()
+ void ES_h264::Parse(STREAM_PKT* pkt)
+ {
+   size_t frame_ptr = es_consumed;
+-  size_t p = es_parsed;
++  size_t pOld, p = es_parsed;
+   uint32_t startcode = m_StartCode;
+   bool frameComplete = false;
+ 
+@@ -80,6 +79,19 @@ void ES_h264::Parse(STREAM_PKT* pkt)
+   {
+     if ((startcode & 0xffffff00) == 0x00000100)
+     {
++      if (m_PPSRawId >= 0)
++      {
++        m_streamData.pps[m_PPSRawId].raw_data_size = p - pOld - 5;
++        memcpy(m_streamData.pps[m_PPSRawId].raw_data, es_buf + pOld, m_streamData.pps[m_PPSRawId].raw_data_size);
++        m_PPSRawId = -1, es_extraDataChanged = true;
++      }
++      if (m_SPSRawId >= 0)
++      {
++        m_streamData.sps[m_SPSRawId].raw_data_size = p - pOld - 5;
++        memcpy(m_streamData.sps[m_SPSRawId].raw_data, es_buf + pOld, m_streamData.sps[m_SPSRawId].raw_data_size);
++        m_SPSRawId = -1, es_extraDataChanged = true;
++      }
++      pOld = p - 1;
+       if (Parse_H264(startcode, p, frameComplete) < 0)
+       {
+         break;
+@@ -103,15 +115,7 @@ void ES_h264::Parse(STREAM_PKT* pkt)
+       if (c_dts != PTS_UNSET && p_dts != PTS_UNSET && c_dts > p_dts)
+         duration = c_dts - p_dts;
+       else
+-        duration = static_cast<int>(Rescale(40000, PTS_TIME_BASE, RESCALE_TIME_BASE));
+-
+-      bool streamChange = false;
+-      if (es_frame_valid)
+-      {
+-        if (m_FpsScale == 0)
+-          m_FpsScale = static_cast<int>(Rescale(duration, RESCALE_TIME_BASE, PTS_TIME_BASE));
+-        streamChange = SetVideoInformation(m_FpsScale, RESCALE_TIME_BASE, m_Height, m_Width, static_cast<float>(DAR), m_Interlaced);
+-      }
++        duration = stream_info.fps_scale;
+ 
+       pkt->pid            = pid;
+       pkt->size           = es_consumed - frame_ptr;
+@@ -119,7 +123,30 @@ void ES_h264::Parse(STREAM_PKT* pkt)
+       pkt->dts            = m_DTS;
+       pkt->pts            = m_PTS;
+       pkt->duration       = duration;
+-      pkt->streamChange   = streamChange;
++      pkt->streamChange   = SetVideoInformation(duration, PTS_TIME_BASE, m_Height, m_Width, static_cast<float>(DAR), m_Interlaced);
++
++      if (es_extraDataChanged)
++      {
++        if (m_streamData.sps[0].raw_data_size)
++        {
++          uint8_t *ed(stream_info.extra_data);
++          stream_info.extra_data_size = 4 + m_streamData.sps[0].raw_data_size;
++          ed[0] = ed[1] = ed[2] = 0, ed[3] = 1, ed += 4;
++          memcpy(ed, m_streamData.sps[0].raw_data, m_streamData.sps[0].raw_data_size), ed += m_streamData.sps[0].raw_data_size;
++          for (int i = 0; i < 256; ++i)
++          {
++            if (m_streamData.pps[i].raw_data_size)
++            {
++              ed[0] = ed[1] = ed[2] = 0, ed[3] = 1, ed += 4;
++              memcpy(ed, m_streamData.pps[i].raw_data, m_streamData.pps[i].raw_data_size), ed += m_streamData.sps[i].raw_data_size;
++              stream_info.extra_data_size += 4 + m_streamData.pps[i].raw_data_size;
++            }
++          }
++        }
++        else
++          stream_info.extra_data_size = 0;
++      }
++      es_extraDataChanged = false;
+     }
+     m_StartCode = 0xffffffff;
+     es_parsed = es_consumed;
+@@ -285,6 +312,7 @@ bool ES_h264::Parse_PPS(uint8_t *buf, int len)
+   m_streamData.pps[pps_id].sps = sps_id;
+   bs.readBits1();
+   m_streamData.pps[pps_id].pic_order_present_flag = bs.readBits1();
++  m_PPSRawId = pps_id;
+   return true;
+ }
+ 
+@@ -540,6 +568,7 @@ bool ES_h264::Parse_SPS(uint8_t *buf, int len)
+     }
+   }
+ 
++  m_SPSRawId = seq_parameter_set_id;
+   DBG(DEMUX_DBG_PARSE, "H.264 SPS: -> video size %dx%d, aspect %d:%d\n", m_Width, m_Height, m_PixelAspect.num, m_PixelAspect.den);
+   return true;
+ }
+diff --git a/src/ES_h264.h b/src/ES_h264.h
+index f6062f1..23c1656 100644
+--- a/src/ES_h264.h
++++ b/src/ES_h264.h
+@@ -39,12 +39,16 @@ namespace TSDemux
+         int log2_max_frame_num;
+         int log2_max_pic_order_cnt_lsb;
+         int delta_pic_order_always_zero_flag;
++        int raw_data_size;
++        uint8_t raw_data[32];
+       } sps[256];
+ 
+       struct PPS
+       {
+-        int sps;
+-        int pic_order_present_flag;
++        uint8_t sps;
++        uint8_t pic_order_present_flag;
++        uint16_t raw_data_size;
++        uint8_t raw_data[32];
+       } pps[256];
+ 
+       struct VCL_NAL
+@@ -86,10 +90,7 @@ namespace TSDemux
+     bool            m_NeedPPS;
+     int             m_Width;
+     int             m_Height;
+-    int             m_FPS;
+-    int             m_FpsScale;
+     mpeg_rational_t m_PixelAspect;
+-    int             m_FrameDuration;
+     h264_private    m_streamData;
+     int             m_vbvDelay;       /* -1 if CBR */
+     int             m_vbvSize;        /* Video buffer size (in bytes) */
+@@ -97,6 +98,9 @@ namespace TSDemux
+     int64_t         m_PTS;
+     bool            m_Interlaced;
+ 
++    int             m_SPSRawId;
++    int             m_PPSRawId;
++
+     int Parse_H264(uint32_t startcode, int buf_ptr, bool &complete);
+     bool Parse_PPS(uint8_t *buf, int len);
+     bool Parse_SLH(uint8_t *buf, int len, h264_private::VCL_NAL &vcl);
+diff --git a/src/elementaryStream.cpp b/src/elementaryStream.cpp
+index ab5b3e9..b61281f 100644
+--- a/src/elementaryStream.cpp
++++ b/src/elementaryStream.cpp
+@@ -46,6 +46,7 @@ ElementaryStream::ElementaryStream(uint16_t pes_pid)
+   , es_parsed(0)
+   , es_found_frame(false)
+   , es_frame_valid(false)
++  , es_extraDataChanged(false)
+ {
+   memset(&stream_info, 0, sizeof(STREAM_INFO));
+ }
+diff --git a/src/elementaryStream.h b/src/elementaryStream.h
+index 7502324..3064515 100644
+--- a/src/elementaryStream.h
++++ b/src/elementaryStream.h
+@@ -73,6 +73,8 @@ namespace TSDemux
+     int                   bit_rate;
+     int                   bits_per_sample;
+     bool                  interlaced;
++    uint8_t               extra_data[256];
++    int                   extra_data_size;
+   };
+ 
+   struct STREAM_PKT
+@@ -126,6 +128,7 @@ namespace TSDemux
+     size_t es_parsed;             ///< Parser: Last processed position in buffer
+     bool   es_found_frame;        ///< Parser: Found frame
+     bool   es_frame_valid;
++    bool   es_extraDataChanged;
+   };
+ }
+ 
+diff --git a/src/tsDemuxer.cpp b/src/tsDemuxer.cpp
+index d577527..578fc11 100644
+--- a/src/tsDemuxer.cpp
++++ b/src/tsDemuxer.cpp
+@@ -362,6 +362,8 @@ void AVContext::GoPosition(uint64_t pos)
+ {
+   av_pos = pos;
+   Reset();
++  for (std::map<uint16_t, Packet>::iterator it = this->packets.begin(); it != this->packets.end(); ++it)
++    it->second.Reset();
+ }
+ 
+ uint64_t AVContext::GetPosition() const
+@@ -369,6 +371,11 @@ uint64_t AVContext::GetPosition() const
+   return av_pos;
+ }
+ 
++uint64_t AVContext::GetNextPosition() const
++{
++  return av_pos + av_pkt_size;
++}
++
+ /*
+  * Process TS packet
+  *
+diff --git a/src/tsDemuxer.h b/src/tsDemuxer.h
+index f094cd6..cc70766 100644
+--- a/src/tsDemuxer.h
++++ b/src/tsDemuxer.h
+@@ -82,6 +82,7 @@ namespace TSDemux
+     uint64_t Shift();
+     void GoPosition(uint64_t pos);
+     uint64_t GetPosition() const;
++    uint64_t GetNextPosition() const;
+     int ProcessTSPacket();
+     int ProcessTSPayload();
+ 
+-- 
+2.17.1.windows.2
+

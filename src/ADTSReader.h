@@ -36,6 +36,7 @@ public:
   };
 
   PARSECODE parse(AP4_ByteStream *stream);
+  //bool getPts(uint64_t& pts) { if (m_timestamp) { pts = m_timestamp; m_timestamp = 0; return true; } pts = 0; return false; }
   bool getPts(uint64_t &pts) { if (m_timestamp) { pts = m_timestamp; m_timestamp = 0; return true; } return false; }
 
 private:

@@ -1,0 +1,78 @@
+From 036f01443c0370dd05b795318f9d496a982ef34b Mon Sep 17 00:00:00 2001
+From: peak3d <pfau@peak3d.de>
+Date: Tue, 14 Aug 2018 17:19:05 +0200
+Subject: [PATCH 12/16] [TS] collect codec extra data for hevc
+
+---
+ src/ES_hevc.cpp | 21 +++++++++++++++++++--
+ src/ES_hevc.h   |  1 +
+ 2 files changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/src/ES_hevc.cpp b/src/ES_hevc.cpp
+index 884d652..47224bd 100644
+--- a/src/ES_hevc.cpp
++++ b/src/ES_hevc.cpp
+@@ -116,6 +116,7 @@ void ES_hevc::Reset()
+   ElementaryStream::Reset();
+   m_StartCode = 0xffffffff;
+   m_LastStartPos = -1;
++  m_NeedVPS = true;
+   m_NeedSPS = true;
+   m_NeedPPS = true;
+   memset(&m_streamData, 0, sizeof(m_streamData));
+@@ -177,6 +178,12 @@ void ES_hevc::Parse_HEVC(int buf_ptr, unsigned int NumBytesInNalUnit, bool &comp
+     switch (hdr.nal_unit_type)
+     {
+     case NAL_VPS_NUT:
++      if (m_NeedVPS)
++      {
++        memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
++        stream_info.extra_data_size += NumBytesInNalUnit;
++        m_NeedVPS = false;
++      }
+        break;
+ 
+     case NAL_SPS_NUT:
+@@ -188,7 +195,12 @@ void ES_hevc::Parse_HEVC(int buf_ptr, unsigned int NumBytesInNalUnit, bool &comp
+         return;
+       }
+       Parse_SPS(buf, NumBytesInNalUnit, hdr);
+-      m_NeedSPS = false;
++      if (m_NeedSPS)
++      {
++        memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
++        stream_info.extra_data_size += NumBytesInNalUnit;
++        m_NeedSPS = false;
++      }
+       break;
+     }
+ 
+@@ -201,7 +213,12 @@ void ES_hevc::Parse_HEVC(int buf_ptr, unsigned int NumBytesInNalUnit, bool &comp
+         return;
+       }
+       Parse_PPS(buf, NumBytesInNalUnit);
+-      m_NeedPPS = false;
++      if (m_NeedPPS)
++      {
++        memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
++        stream_info.extra_data_size += NumBytesInNalUnit;
++        m_NeedPPS = false;
++      }
+       break;
+     }
+ 
+diff --git a/src/ES_hevc.h b/src/ES_hevc.h
+index e06a166..804a009 100644
+--- a/src/ES_hevc.h
++++ b/src/ES_hevc.h
+@@ -91,6 +91,7 @@ namespace TSDemux
+ 
+     uint32_t        m_StartCode;
+     int             m_LastStartPos;
++    bool            m_NeedVPS;
+     bool            m_NeedSPS;
+     bool            m_NeedPPS;
+     int             m_Width;
+-- 
+2.17.1.windows.2
+

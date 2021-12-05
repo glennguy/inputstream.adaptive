@@ -1,0 +1,27 @@
+From f63bd0cc389a75e23cd7671682be805d04b06a15 Mon Sep 17 00:00:00 2001
+From: peak3d <pfau@peak3d.de>
+Date: Mon, 11 Mar 2019 17:40:30 +0100
+Subject: [PATCH 14/16] [HLS] Add HEVC streams / Fix extra_data_size in ts
+ parser
+
+---
+ src/ES_hevc.cpp | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/ES_hevc.cpp b/src/ES_hevc.cpp
+index 47224bd..946141e 100644
+--- a/src/ES_hevc.cpp
++++ b/src/ES_hevc.cpp
+@@ -57,6 +57,9 @@ void ES_hevc::Parse(STREAM_PKT* pkt)
+   uint32_t startcode = m_StartCode;
+   bool frameComplete = false;
+ 
++  if (m_NeedSPS)
++    stream_info.extra_data_size = 0;
++
+   while (p < es_len)
+   {
+     startcode = startcode << 8 | es_buf[p++];
+-- 
+2.17.1.windows.2
+

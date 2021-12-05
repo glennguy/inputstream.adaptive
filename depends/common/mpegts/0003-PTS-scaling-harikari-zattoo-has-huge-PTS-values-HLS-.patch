@@ -1,0 +1,33 @@
+From 1b8ce2efb1e162eed9427327f813fbb31187d9e6 Mon Sep 17 00:00:00 2001
+From: peak3d <pfau@peak3d.de>
+Date: Wed, 2 Aug 2017 18:42:07 +0200
+Subject: [PATCH 03/16] PTS scaling harikari (zattoo has huge PTS values) / HLS
+ Live preparation
+
+---
+ src/tsDemuxer.cpp | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/src/tsDemuxer.cpp b/src/tsDemuxer.cpp
+index ac29636..15b8034 100644
+--- a/src/tsDemuxer.cpp
++++ b/src/tsDemuxer.cpp
+@@ -1058,9 +1058,13 @@ int AVContext::parse_ts_pes()
+         {
+           int64_t pts = decode_pts(this->packet->packet_table.buf + 9);
+           int64_t dts = decode_pts(this->packet->packet_table.buf + 14);
++
++          int64_t d(0);
+           if (pts < dts)
+-            dts -= PTS_UNSET;
+-          int64_t d = (pts - dts) & PTS_MASK;
++            dts = PTS_UNSET;
++          else
++            d = (pts - dts) & PTS_MASK;
++
+           // more than two seconds of PTS/DTS delta, probably corrupt
+           if(d > 180000)
+           {
+-- 
+2.17.1.windows.2
+

@@ -74,11 +74,10 @@ endif()
 
 add_definitions(-DUNICODE -D_UNICODE)
 
-add_subdirectory(lib/mpegts)
-
 add_subdirectory(lib/webm_parser)
 
 find_package(Bento4 REQUIRED)
+find_package(Mpegts REQUIRED)
 if(CORE_SYSTEM_NAME STREQUAL ios OR CORE_SYSTEM_NAME STREQUAL darwin_embedded)
   set(BENTOUSESTCFS 1)
   include_directories(${BENTO4_INCLUDE_DIRS})
@@ -90,7 +89,7 @@ endif()
 set(DECRYPTERPATH "special://home/cdm")
 
 list(APPEND DEPLIBS ${BENTO4_LIBRARIES})
-list(APPEND DEPLIBS mpegts)
+list(APPEND DEPLIBS ${MPEGTS_LIBRARIES})
 list(APPEND DEPLIBS webm_parser)
 
 build_addon(inputstream.adaptive ADP DEPLIBS)

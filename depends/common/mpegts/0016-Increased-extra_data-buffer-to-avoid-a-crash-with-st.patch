@@ -1,0 +1,100 @@
+From 4b5102c19dbeb463d4b1eb4182a9cfb0ea24a1e1 Mon Sep 17 00:00:00 2001
+From: Rob Peters <Rob@DVBControl.com>
+Date: Wed, 12 May 2021 11:03:43 +0200
+Subject: [PATCH 16/16] Increased 'extra_data' buffer to avoid a crash with
+ streams containing large VPS/SPS/PPS
+
+Took me a while to find this one... Testing with a UDH HEVC stream with the following NAL sizes was causing a crash
+
+VPS 135
+SPS 148
+PPS 117
+
+This caused the 'extra_data_size' to be 400 bytes instead of the maximum of 256
+
+I also added a extra check in ES_hevc.cpp to avoid this from happening in the feature and added a debug log in case the buffer size is to small in the feature
+---
+ src/ES_hevc.cpp        | 39 +++++++++++++++++++++++++++--------
+ src/elementaryStream.h |  2 +-
+ 2 files changed, 31 insertions(+), 10 deletions(-)
+
+diff --git a/src/ES_hevc.cpp b/src/ES_hevc.cpp
+index 946141e..683256d 100644
+--- a/src/ES_hevc.cpp
++++ b/src/ES_hevc.cpp
+@@ -183,9 +183,16 @@ void ES_hevc::Parse_HEVC(int buf_ptr, unsigned int NumBytesInNalUnit, bool &comp
+     case NAL_VPS_NUT:
+       if (m_NeedVPS)
+       {
+-        memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
+-        stream_info.extra_data_size += NumBytesInNalUnit;
+-        m_NeedVPS = false;
++        if (stream_info.extra_data_size + NumBytesInNalUnit <= sizeof(stream_info.extra_data))
++        {
++          memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
++          stream_info.extra_data_size += NumBytesInNalUnit;
++          m_NeedVPS = false;
++        }
++        else
++        {
++          DBG(DEMUX_DBG_INFO, "HEVC fixme: stream_info.extra_data too small! %i\n", stream_info.extra_data_size + NumBytesInNalUnit);
++        }
+       }
+        break;
+ 
+@@ -200,9 +207,16 @@ void ES_hevc::Parse_HEVC(int buf_ptr, unsigned int NumBytesInNalUnit, bool &comp
+       Parse_SPS(buf, NumBytesInNalUnit, hdr);
+       if (m_NeedSPS)
+       {
+-        memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
+-        stream_info.extra_data_size += NumBytesInNalUnit;
+-        m_NeedSPS = false;
++        if (stream_info.extra_data_size + NumBytesInNalUnit <= sizeof(stream_info.extra_data))
++        {
++          memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
++          stream_info.extra_data_size += NumBytesInNalUnit;
++          m_NeedSPS = false;
++        }
++        else
++        {
++          DBG(DEMUX_DBG_INFO, "HEVC fixme: stream_info.extra_data too small! %i\n", stream_info.extra_data_size + NumBytesInNalUnit);
++        }
+       }
+       break;
+     }
+@@ -218,9 +232,16 @@ void ES_hevc::Parse_HEVC(int buf_ptr, unsigned int NumBytesInNalUnit, bool &comp
+       Parse_PPS(buf, NumBytesInNalUnit);
+       if (m_NeedPPS)
+       {
+-        memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
+-        stream_info.extra_data_size += NumBytesInNalUnit;
+-        m_NeedPPS = false;
++        if (stream_info.extra_data_size + NumBytesInNalUnit <= sizeof(stream_info.extra_data))
++        {
++          memcpy(stream_info.extra_data + stream_info.extra_data_size, es_buf + (buf_ptr - 4), NumBytesInNalUnit);
++          stream_info.extra_data_size += NumBytesInNalUnit;
++          m_NeedPPS = false;
++        }
++        else
++        {
++          DBG(DEMUX_DBG_INFO, "HEVC fixme: stream_info.extra_data too small! %i\n", stream_info.extra_data_size + NumBytesInNalUnit);
++        }
+       }
+       break;
+     }
+diff --git a/src/elementaryStream.h b/src/elementaryStream.h
+index 9a5c6d5..11151dd 100644
+--- a/src/elementaryStream.h
++++ b/src/elementaryStream.h
+@@ -73,7 +73,7 @@ namespace TSDemux
+     int                   bit_rate;
+     int                   bits_per_sample;
+     bool                  interlaced;
+-    uint8_t               extra_data[256];
++    uint8_t               extra_data[512];
+     int                   extra_data_size;
+   };
+ 
+-- 
+2.17.1.windows.2
+

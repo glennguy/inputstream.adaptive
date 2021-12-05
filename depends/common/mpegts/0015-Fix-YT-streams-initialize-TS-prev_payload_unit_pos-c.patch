@@ -1,0 +1,33 @@
+From 8e6154d508714212a7d946b1d61b922b4d8c88cd Mon Sep 17 00:00:00 2001
+From: peak3d <pfau@peak3d.de>
+Date: Wed, 20 Nov 2019 12:03:40 +0100
+Subject: [PATCH 15/16] Fix YT streams / initialize TS::prev_payload_unit_pos
+ (could lead to seek > segment buffer)
+
+---
+ src/tsDemuxer.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/tsDemuxer.cpp b/src/tsDemuxer.cpp
+index 133f541..f63d934 100644
+--- a/src/tsDemuxer.cpp
++++ b/src/tsDemuxer.cpp
+@@ -39,6 +39,7 @@ using namespace TSDemux;
+ AVContext::AVContext(TSDemuxer* const demux, uint64_t pos, uint16_t channel)
+   : av_pos(pos)
+   , payload_unit_pos(0)
++  , prev_payload_unit_pos(0)
+   , av_data_len(FLUTS_NORMAL_TS_PACKETSIZE)
+   , av_pkt_size(0)
+   , is_configured(false)
+@@ -68,6 +69,7 @@ void AVContext::Reset(void)
+   payload = NULL;
+   payload_len = 0;
+   payload_unit_pos = 0;
++  prev_payload_unit_pos = 0;
+   packet = NULL;
+ }
+ 
+-- 
+2.17.1.windows.2
+

@@ -1,0 +1,26 @@
+From 34733320ab6321fc07bd972c541d2a294289581f Mon Sep 17 00:00:00 2001
+From: peak3d <pfau@peak3d.de>
+Date: Fri, 4 Aug 2017 00:08:47 +0200
+Subject: [PATCH 04/16] More HLS and cleanup - compilefix linux - HLS
+ sequence-iv - removd more compiler warnings
+
+---
+ src/ES_h264.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/ES_h264.cpp b/src/ES_h264.cpp
+index ef44ad9..f94f9bb 100644
+--- a/src/ES_h264.cpp
++++ b/src/ES_h264.cpp
+@@ -71,7 +71,7 @@ ES_h264::~ES_h264()
+ void ES_h264::Parse(STREAM_PKT* pkt)
+ {
+   size_t frame_ptr = es_consumed;
+-  size_t pOld, p = es_parsed;
++  size_t pOld = es_parsed, p = es_parsed;
+   uint32_t startcode = m_StartCode;
+   bool frameComplete = false;
+ 
+-- 
+2.17.1.windows.2
+

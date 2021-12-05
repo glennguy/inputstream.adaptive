@@ -1,0 +1,51 @@
+From a216c0584bf109ade8e5c8f8ab227d83ec608cf8 Mon Sep 17 00:00:00 2001
+From: peak3d <pfau@peak3d.de>
+Date: Wed, 24 Oct 2018 13:21:29 +0200
+Subject: [PATCH 13/16] [TS] allow short 001 start sequence before SPS (missing
+ byte in extra-data)
+
+---
+ src/ES_h264.cpp | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/src/ES_h264.cpp b/src/ES_h264.cpp
+index ceb8ac0..8515ed9 100644
+--- a/src/ES_h264.cpp
++++ b/src/ES_h264.cpp
+@@ -104,7 +104,8 @@ void ES_h264::Parse(STREAM_PKT* pkt)
+     {
+       if (m_PPSRawId >= 0)
+       {
+-        m_streamData.pps[m_PPSRawId].raw_data_size = p - pOld - 5;
++        int codeOffset = p >= 5 && es_buf[p - 5] == 0 ? 5 : 4;
++        m_streamData.pps[m_PPSRawId].raw_data_size = p - pOld - codeOffset;
+         if (m_streamData.pps[m_PPSRawId].raw_data_size < sizeof(m_streamData.pps[m_PPSRawId].raw_data))
+           memcpy(m_streamData.pps[m_PPSRawId].raw_data, es_buf + pOld, m_streamData.pps[m_PPSRawId].raw_data_size);
+         else
+@@ -113,11 +114,12 @@ void ES_h264::Parse(STREAM_PKT* pkt)
+       }
+       if (m_SPSRawId >= 0)
+       {
++        int codeOffset = p >= 5 && es_buf[p - 5] == 0 ? 5 : 4;
+         uint8_t unescaped[256];
+-        unsigned int usize = unescape(es_buf + pOld + 1, unescaped, p - pOld - 6);
++        unsigned int usize = unescape(es_buf + pOld + 1, unescaped, p - pOld - codeOffset - 1);
+         Parse_SPS(unescaped, usize, false);
+ 
+-        m_streamData.sps[m_SPSRawId].raw_data_size = p - pOld - 5;
++        m_streamData.sps[m_SPSRawId].raw_data_size = p - pOld - codeOffset;
+         if (m_streamData.pps[m_SPSRawId].raw_data_size < sizeof(m_streamData.pps[m_SPSRawId].raw_data))
+           memcpy(m_streamData.sps[m_SPSRawId].raw_data, es_buf + pOld, m_streamData.sps[m_SPSRawId].raw_data_size);
+         else
+@@ -130,7 +132,7 @@ void ES_h264::Parse(STREAM_PKT* pkt)
+         break;
+       }
+     }
+-    startcode = startcode << 8 | es_buf[p++];
++    startcode = (startcode << 8) | es_buf[p++];
+   }
+   es_parsed = p;
+   m_StartCode = startcode;
+-- 
+2.17.1.windows.2
+

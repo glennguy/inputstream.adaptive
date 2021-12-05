@@ -1826,7 +1826,15 @@ public:
   {
     if (ReadPacket())
     {
-      m_pts = (GetPts() == PTS_UNSET) ? STREAM_NOPTS_VALUE : (GetPts() * 100) / 9;
+      if (GetPts() == PTS_UNSET) 
+      {
+        m_pts = STREAM_NOPTS_VALUE;
+      }
+      else
+      {
+        m_pts = (GetPts() * 100) / 9;
+      }
+      //m_pts = (GetPts() == PTS_UNSET) ? STREAM_NOPTS_VALUE : (GetPts() * 100) / 9;
 
       if (~m_ptsOffs)
       {
@@ -2066,7 +2074,7 @@ Session::Session(MANIFEST_TYPE manifestType,
   representationChooser_->max_buffer_duration_ = kodi::GetSettingInt("MAXBUFFERDURATION");
   adaptiveTree_->representation_chooser_ = representationChooser_;
 
-  std::string fn(profile_path_ + "bandwidth.bin");
+  /*std::string fn(profile_path_ + "bandwidth.bin");
   FILE* f = fopen(fn.c_str(), "rb");
   if (f)
   {
@@ -2079,8 +2087,8 @@ Session::Session(MANIFEST_TYPE manifestType,
     }
     fclose(f);
   }
-  else
-    representationChooser_->bandwidth_ = 4000000;
+  else*/
+  representationChooser_->bandwidth_ = 300000;
   kodi::Log(ADDON_LOG_DEBUG, "Initial bandwidth: %u ", representationChooser_->bandwidth_);
 
   representationChooser_->max_resolution_ = kodi::GetSettingInt("MAXRESOLUTION");
@@ -3163,7 +3171,10 @@ void Session::OnSegmentChanged(adaptive::AdaptiveStream* stream)
     if (&s->stream_ == stream)
     {
       if (s->reader_)
-        s->reader_->SetPTSOffset(s->stream_.GetCurrentPTSOffset());
+      {
+        uint64_t currentOffset = s->stream_.GetCurrentPTSOffset();
+        s->reader_->SetPTSOffset(currentOffset);
+      }
       s->segmentChanged = true;
       break;
     }

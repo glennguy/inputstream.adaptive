@@ -1,0 +1,63 @@
+From f700c00b08fc831c245ffebc77b8d01938a0408d Mon Sep 17 00:00:00 2001
+From: peak3d <pfau@peak3d.de>
+Date: Thu, 26 Jul 2018 16:34:06 +0200
+Subject: [PATCH 11/16] [TS] ensure / check size of sps/ pps
+
+---
+ src/ES_h264.cpp | 10 ++++++++--
+ src/ES_h264.h   |  4 ++--
+ 2 files changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/src/ES_h264.cpp b/src/ES_h264.cpp
+index 9e5e9dd..ceb8ac0 100644
+--- a/src/ES_h264.cpp
++++ b/src/ES_h264.cpp
+@@ -105,7 +105,10 @@ void ES_h264::Parse(STREAM_PKT* pkt)
+       if (m_PPSRawId >= 0)
+       {
+         m_streamData.pps[m_PPSRawId].raw_data_size = p - pOld - 5;
+-        memcpy(m_streamData.pps[m_PPSRawId].raw_data, es_buf + pOld, m_streamData.pps[m_PPSRawId].raw_data_size);
++        if (m_streamData.pps[m_PPSRawId].raw_data_size < sizeof(m_streamData.pps[m_PPSRawId].raw_data))
++          memcpy(m_streamData.pps[m_PPSRawId].raw_data, es_buf + pOld, m_streamData.pps[m_PPSRawId].raw_data_size);
++        else
++          m_streamData.pps[m_PPSRawId].raw_data_size = 0;
+         m_PPSRawId = -1, es_extraDataChanged = true;
+       }
+       if (m_SPSRawId >= 0)
+@@ -115,7 +118,10 @@ void ES_h264::Parse(STREAM_PKT* pkt)
+         Parse_SPS(unescaped, usize, false);
+ 
+         m_streamData.sps[m_SPSRawId].raw_data_size = p - pOld - 5;
+-        memcpy(m_streamData.sps[m_SPSRawId].raw_data, es_buf + pOld, m_streamData.sps[m_SPSRawId].raw_data_size);
++        if (m_streamData.pps[m_SPSRawId].raw_data_size < sizeof(m_streamData.pps[m_SPSRawId].raw_data))
++          memcpy(m_streamData.sps[m_SPSRawId].raw_data, es_buf + pOld, m_streamData.sps[m_SPSRawId].raw_data_size);
++        else
++          m_streamData.pps[m_SPSRawId].raw_data_size = 0;
+         m_SPSRawId = -1, es_extraDataChanged = true;
+       }
+       pOld = p - 1;
+diff --git a/src/ES_h264.h b/src/ES_h264.h
+index 9f2f631..9576e08 100644
+--- a/src/ES_h264.h
++++ b/src/ES_h264.h
+@@ -40,7 +40,7 @@ namespace TSDemux
+         int log2_max_pic_order_cnt_lsb;
+         int delta_pic_order_always_zero_flag;
+         int raw_data_size;
+-        uint8_t raw_data[32];
++        uint8_t raw_data[64];
+       } sps[256];
+ 
+       struct PPS
+@@ -48,7 +48,7 @@ namespace TSDemux
+         uint8_t sps;
+         uint8_t pic_order_present_flag;
+         uint16_t raw_data_size;
+-        uint8_t raw_data[32];
++        uint8_t raw_data[64];
+       } pps[256];
+ 
+       struct VCL_NAL
+-- 
+2.17.1.windows.2
+
