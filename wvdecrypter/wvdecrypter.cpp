@@ -1468,8 +1468,8 @@ public:
 
   virtual bool HasLicenseKey(AP4_CencSingleSampleDecrypter* decrypter, const uint8_t *keyid) override
   {
-    if (decrypter)
-      return static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->HasKeyId(keyid);
+    //if (decrypter)
+    //  return static_cast<WV_CencSingleSampleDecrypter*>(decrypter)->HasKeyId(keyid);
     return false;
   }
 
