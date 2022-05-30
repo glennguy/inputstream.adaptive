@@ -41,6 +41,7 @@ public:
   const AP4_Byte* GetSampleData() const override { return m_sampleData.GetData(); }
   uint64_t GetDuration() const override { return m_sample.GetDuration() * 1000; }
   bool IsEncrypted() const override { return false; }
+  INPUTSTREAM_TYPE GetStreamType() override { return INPUTSTREAM_TYPE::INPUTSTREAM_TYPE_SUBTITLE; }
 
 private:
   uint64_t m_pts{0};

@@ -55,4 +55,5 @@ public:
   virtual bool RemoveStreamType(INPUTSTREAM_TYPE type) { return true; };
   virtual bool IsStarted() const = 0;
   virtual ReaderCryptoInfo GetReaderCryptoInfo() const { return ReaderCryptoInfo(); }
+  virtual INPUTSTREAM_TYPE GetStreamType() { return INPUTSTREAM_TYPE::INPUTSTREAM_TYPE_NONE; }
 };

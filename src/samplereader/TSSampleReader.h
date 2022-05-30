@@ -37,7 +37,7 @@ public:
   int64_t GetPTSDiff() const override { return m_ptsDiff; }
   bool GetNextFragmentInfo(uint64_t& ts, uint64_t& dur) override { return false; }
   uint32_t GetTimeScale() const override { return 90000; }
-  AP4_UI32 GetStreamId() const override { return m_typeMap[GetStreamType()]; }
+  AP4_UI32 GetStreamId() const override { return m_typeMap[TSReader::GetStreamType()]; }
   AP4_Size GetSampleDataSize() const override { return GetPacketSize(); }
   const AP4_Byte* GetSampleData() const override { return GetPacketData(); }
   uint64_t GetDuration() const override { return (TSReader::GetDuration() * 100) / 9; }
