@@ -153,8 +153,8 @@ int HLSTree::processEncryption(std::string baseUrl, std::map<std::string, std::s
   // KNOWN UNSUPPORTED
   if (map["METHOD"] == "SAMPLE-AES")
   {
-    LOG::LogF(LOGERROR, "Unsupported encryption method: %s", map["METHOD"].c_str());
-    return ENCRYPTIONTYPE_INVALID;
+    LOG::LogF(LOGDEBUG, "Unsupported encryption method %s for keyformat %s", map["METHOD"].c_str(),
+              map["KEYFORMAT"].c_str());
   }
 
   return ENCRYPTIONTYPE_UNKNOWN;
@@ -492,10 +492,13 @@ HLSTree::PREPARE_RESULT HLSTree::prepareRepresentation(Period* period,
         {
           std::string::size_type bs = line.rfind('@');
           if (bs != std::string::npos)
-          {
             segment.range_begin_ = atoll(line.c_str() + (bs + 1));
-            segment.range_end_ = segment.range_begin_ + atoll(line.c_str() + 17) - 1;
-          }
+          else
+            segment.range_begin_ = newSegments.size() > 0
+                                       ? newSegments.Get(newSegments.size() - 1)->range_end_ + 1
+                                       : 0;
+
+          segment.range_end_ = segment.range_begin_ + atoll(line.c_str() + 17) - 1;
           byteRange = true;
         }
         else if (!line.empty() && line.compare(0, 1, "#") != 0 && ~segment.startPTS_)
